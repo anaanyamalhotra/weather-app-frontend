@@ -94,7 +94,7 @@ else:
 st.title("🌤️ Weather App")
 st.markdown(f"_{greeting}! Check the weather, forecast, and explore your location below._")
 
-location = st.text_input("Enter a location (e.g., New York or 10001). For international ZIP codes, use: postal_code,country_code (e.g., 10115,de)")
+location = st.text_input("Enter a location (e.g., New York or 10001). For international ZIP codes, use: postal code,country code (e.g., 10115,de)")
 unit = st.radio("Choose temperature unit:", ["Celsius", "Fahrenheit"])
 
 if st.button("Get Weather") and location:
