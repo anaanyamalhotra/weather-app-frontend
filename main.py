@@ -5,6 +5,8 @@ import base64
 import json
 import datetime
 import plotly.express as px
+import folium
+from streamlit_folium import st_folium
 
 st.set_page_config(page_title="Weather App", layout="centered")
 API_KEY = st.secrets["WEATHER_API_KEY"]
@@ -46,6 +48,18 @@ def get_weather_data(location, unit):
     except:
         return None, "Failed to retrieve weather data."
 
+def render_weather_map(lat, lon):
+    m = folium.Map(location=[lat, lon], zoom_start=6)
+    folium.TileLayer(
+        tiles='https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=' + API_KEY,
+        attr='OpenWeatherMap',
+        name='Temperature',
+        overlay=True,
+        control=True
+    ).add_to(m)
+    folium.Marker([lat, lon], tooltip="Location").add_to(m)
+    st_folium(m, width=700, height=500)
+
 def generate_pdf_download_link(df):
     html = df.to_html(index=False)
     b64 = base64.b64encode(html.encode()).decode()
@@ -59,9 +73,7 @@ def generate_json_download(data):
 def get_youtube_video_url(query):
     return f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}+weather"
 
-def google_maps_url(lat, lon):
-    return f"https://www.google.com/maps?q={lat},{lon}"
-
+# Greeting
 hour = datetime.datetime.now().hour
 if hour < 12:
     greeting = "Good morning"
@@ -73,7 +85,8 @@ else:
 st.title("🌤️ Weather App")
 st.markdown(f"_{greeting}! Check the weather, forecast, and explore your location below._")
 
-location = st.text_input("Enter a location (e.g., New York, U.S. ZIP code (e.g., 10001), or for international cities use the format: 10115,de):")
+# ✅ Improved prompt
+location = st.text_input("Enter a location (e.g., New York or 10001). For international ZIP codes, use: postal_code,country_code (e.g., 10115,de)")
 unit = st.radio("Choose temperature unit:", ["Celsius", "Fahrenheit"])
 
 if st.button("Get Weather") and location:
@@ -110,15 +123,8 @@ if st.button("Get Weather") and location:
             fig = px.line(df, x="Date", y=df.columns[-1], markers=True)
             st.plotly_chart(fig, use_container_width=True)
 
-            st.subheader("📍 Location")
-            st.markdown(f"[View on Google Maps]({google_maps_url(coords['lat'], coords['lon'])})")
-
-            st.subheader("📺 Related YouTube Search")
-            st.markdown(f"[Watch weather videos for this location]({get_youtube_video_url(location)})")
-
-
-            st.subheader("📍 Location")
-            st.markdown(f"[View on Google Maps]({google_maps_url(coords['lat'], coords['lon'])})")
+            st.subheader("🗺️ Interactive Weather Map")
+            render_weather_map(coords["lat"], coords["lon"])
 
             st.subheader("📺 Related YouTube Search")
             st.markdown(f"[Watch weather videos for this location]({get_youtube_video_url(location)})")
