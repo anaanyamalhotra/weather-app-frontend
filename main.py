@@ -125,7 +125,51 @@ if st.session_state.weather_data:
             st.metric("Temperature", weather["main"]["temp"])
             st.metric("Humidity", weather["main"]["humidity"])
             st.metric("Wind", weather["wind"]["speed"])
-            if aqi: st.info(f"AQI: {aqi}")
+            if isinstance(aqi, dict):
+    aqi_score = aqi['aqi']
+    components = aqi['components']
+
+    aqi_label = {
+        1: "🟢 Good",
+        2: "🟡 Fair",
+        3: "🟠 Moderate",
+        4: "🔴 Poor",
+        5: "🟣 Very Poor"
+    }
+
+    st.markdown(f"""
+    <div style='background-color:#111; padding:1em; border-radius:10px; border: 1px solid #444; margin-bottom: 1em;'>
+        <h4 style='margin:0 0 0.5em 0;'>🌫️ Air Quality Index: 
+        <span style='color:#1e90ff'>{aqi_score} — {aqi_label.get(aqi_score, "Unknown")}</span></h4>
+    </div>
+    """, unsafe_allow_html=True)
+
+    def get_pollutant_level(name, value):
+        if name in ["pm2_5", "pm10"]:
+            return "🟢 Low" if value <= 12 else "🟡 Moderate" if value <= 35 else "🔴 High"
+        elif name == "o3":
+            return "🟢 Low" if value <= 100 else "🟡 Moderate" if value <= 160 else "🔴 High"
+        elif name == "co":
+            return "🟢 Low" if value <= 1000 else "🟡 Moderate" if value <= 2000 else "🔴 High"
+        else:
+            return "⚪️"
+
+    labels = {
+        "pm2_5": "PM2.5", "pm10": "PM10", "co": "CO",
+        "no": "NO", "no2": "NO₂", "o3": "O₃",
+        "so2": "SO₂", "nh3": "NH₃"
+    }
+
+    rows = []
+    for key, val in components.items():
+        rows.append({
+            "Pollutant": labels.get(key, key.upper()),
+            "Level": get_pollutant_level(key, val),
+            "µg/m³": round(val, 2)
+        })
+
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
             show_alerts(weather)
             show_hourly_chart(forecast, "Temp")
             show_5day_table(forecast, unit)
