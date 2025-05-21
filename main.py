@@ -6,7 +6,7 @@ import plotly.express as px
 import folium
 from streamlit_folium import st_folium
 
-st.set_page_config(page_title="🌦️ Weather App", layout="wide")
+st.set_page_config(page_title="🌦️ Airvue", layout="wide")
 API_KEY = st.secrets["WEATHER_API_KEY"]
 
 # Session setup
