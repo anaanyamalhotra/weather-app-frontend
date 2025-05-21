@@ -6,13 +6,28 @@ st.set_page_config(page_title="Weather App", layout="centered")
 
 API_KEY = st.secrets["WEATHER_API_KEY"]
 
-def get_weather_data(location):
+def get_coords(location):
+    # Try as ZIP code (U.S.)
+    if location.isdigit():
+        zip_url = f"http://api.openweathermap.org/data/2.5/weather?zip={location},us&appid={API_KEY}"
+        res = requests.get(zip_url)
+        if res.status_code == 200:
+            data = res.json()
+            return data["coord"], None
+
+    # Fallback to geocoding city name
     geo_url = f"http://api.openweathermap.org/geo/1.0/direct?q={location}&limit=1&appid={API_KEY}"
     geo_res = requests.get(geo_url).json()
-    if not geo_res:
-        return None, "Location not found."
-    lat = geo_res[0]["lat"]
-    lon = geo_res[0]["lon"]
+    if geo_res:
+        return {"lat": geo_res[0]["lat"], "lon": geo_res[0]["lon"]}, None
+    return None, "Location not found."
+
+def get_weather_data(location):
+    coords, err = get_coords(location)
+    if err:
+        return None, err
+    lat = coords["lat"]
+    lon = coords["lon"]
 
     weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&units=metric&appid={API_KEY}"
     forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&units=metric&appid={API_KEY}"
