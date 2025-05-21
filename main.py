@@ -4,31 +4,41 @@ import pandas as pd
 import base64
 import json
 import datetime
+import plotly.express as px
 
 st.set_page_config(page_title="Weather App", layout="centered")
 API_KEY = st.secrets["WEATHER_API_KEY"]
 
 def get_coords(location):
-    if location.isdigit():
+    if "," in location:
+        zip_part, country = location.split(",", 1)
+        zip_url = f"http://api.openweathermap.org/data/2.5/weather?zip={zip_part.strip()},{country.strip()}&appid={API_KEY}"
+        res = requests.get(zip_url)
+        if res.status_code == 200:
+            data = res.json()
+            return data["coord"], None
+    elif location.isdigit():
         zip_url = f"http://api.openweathermap.org/data/2.5/weather?zip={location},us&appid={API_KEY}"
         res = requests.get(zip_url)
         if res.status_code == 200:
             data = res.json()
             return data["coord"], None
+
     geo_url = f"http://api.openweathermap.org/geo/1.0/direct?q={location}&limit=1&appid={API_KEY}"
     geo_res = requests.get(geo_url).json()
     if geo_res:
         return {"lat": geo_res[0]["lat"], "lon": geo_res[0]["lon"]}, None
     return None, "Location not found."
 
-def get_weather_data(location):
+def get_weather_data(location, unit):
     coords, err = get_coords(location)
     if err:
         return None, err
     lat = coords["lat"]
     lon = coords["lon"]
-    weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&units=metric&appid={API_KEY}"
-    forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&units=metric&appid={API_KEY}"
+    units = "metric" if unit == "Celsius" else "imperial"
+    weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&units={units}&appid={API_KEY}"
+    forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&units={units}&appid={API_KEY}"
     try:
         weather = requests.get(weather_url).json()
         forecast = requests.get(forecast_url).json()
@@ -52,7 +62,6 @@ def get_youtube_video_url(query):
 def google_maps_url(lat, lon):
     return f"https://www.google.com/maps?q={lat},{lon}"
 
-# Time-based greeting
 hour = datetime.datetime.now().hour
 if hour < 12:
     greeting = "Good morning"
@@ -64,11 +73,12 @@ else:
 st.title("🌤️ Weather App")
 st.markdown(f"_{greeting}! Check the weather, forecast, and explore your location below._")
 
-location = st.text_input("Enter a city or U.S. zip code:")
+location = st.text_input("Enter a city or postal code (e.g., 10115,de or Bangalore):")
+unit = st.radio("Choose temperature unit:", ["Celsius", "Fahrenheit"])
 
 if st.button("Get Weather") and location:
     with st.spinner("Fetching weather..."):
-        data, error = get_weather_data(location)
+        data, error = get_weather_data(location, unit)
         if error:
             st.error(error)
         else:
@@ -78,7 +88,7 @@ if st.button("Get Weather") and location:
 
             st.subheader(f"Current Weather in {weather['name']}, {weather['sys']['country']}")
             st.write(f"**{weather['weather'][0]['main']}** — {weather['weather'][0]['description'].capitalize()}")
-            st.metric("Temperature (°C)", weather["main"]["temp"])
+            st.metric(f"Temperature (°{'C' if unit == 'Celsius' else 'F'})", weather["main"]["temp"])
             st.metric("Humidity (%)", weather["main"]["humidity"])
             st.metric("Wind (m/s)", weather["wind"]["speed"])
 
@@ -88,13 +98,24 @@ if st.button("Get Weather") and location:
             df = pd.DataFrame([{
                 "Date": f["dt_txt"],
                 "Condition": f["weather"][0]["description"].capitalize(),
-                "Temp (°C)": f["main"]["temp"]
+                f"Temp (°{'C' if unit == 'Celsius' else 'F'})": f["main"]["temp"]
             } for f in filtered])
             st.table(df)
 
             st.download_button("⬇️ Download CSV", df.to_csv(index=False), file_name="forecast.csv", mime="text/csv")
             st.markdown(generate_pdf_download_link(df), unsafe_allow_html=True)
             st.markdown(generate_json_download(filtered), unsafe_allow_html=True)
+
+            st.subheader("📊 Forecast Temperature Trend")
+            fig = px.line(df, x="Date", y=df.columns[-1], markers=True)
+            st.plotly_chart(fig, use_container_width=True)
+
+            st.subheader("📍 Location")
+            st.markdown(f"[View on Google Maps]({google_maps_url(coords['lat'], coords['lon'])})")
+
+            st.subheader("📺 Related YouTube Search")
+            st.markdown(f"[Watch weather videos for this location]({get_youtube_video_url(location)})")
+
 
             st.subheader("📍 Location")
             st.markdown(f"[View on Google Maps]({google_maps_url(coords['lat'], coords['lon'])})")
