@@ -1,0 +1,17 @@
+# Don't upload secret keys
+.streamlit/secrets.toml
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Jupyter Notebooks checkpoints (if any)
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+.env/
+
+# OS-specific junk
+.DS_Store
+Thumbs.db
