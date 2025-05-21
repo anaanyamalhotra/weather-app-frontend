@@ -202,7 +202,7 @@ if st.session_state.weather_data:
         show_aqi_card(aqi)
         show_alerts(weather)
 
-        metric = st.selectbox("Choose metric to plot", ["Temp", "Humidity", "Wind"])
+        metric = st.selectbox("Choose metric to plot", ["Temperature", "Humidity", "Wind"])
         show_hourly_chart(forecast, metric)
         show_5day_table(forecast, unit)
         show_map(coords["lat"], coords["lon"])
