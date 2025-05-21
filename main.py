@@ -73,7 +73,7 @@ else:
 st.title("🌤️ Weather App")
 st.markdown(f"_{greeting}! Check the weather, forecast, and explore your location below._")
 
-location = st.text_input("Enter a city or postal code (e.g., 10115,de or Bangalore):")
+location = st.text_input("Enter a location (e.g., New York, U.S. ZIP code (e.g., 10001), or for international cities use the format: 10115,de):")
 unit = st.radio("Choose temperature unit:", ["Celsius", "Fahrenheit"])
 
 if st.button("Get Weather") and location:
