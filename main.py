@@ -128,7 +128,7 @@ hr = datetime.datetime.now().hour
 greet = "Good morning" if hr < 12 else "Good afternoon" if hr < 18 else "Good evening"
 st.title("🌦️ Weather Dashboard")
 st.markdown(f"_{greet}! Compare forecasts, AQI, and explore weather data._")
-st.markdown("💡 Input city or ZIP. Use `10115,de` or `110001,in` for international formats.")
+st.markdown("💡 Enter a location (e.g., New York or 10001). For international ZIP codes, use: postal code, country code (e.g., 10115,de or 110001,in)")
 
 colL, colR = st.columns(2)
 with colL:
