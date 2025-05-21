@@ -144,7 +144,7 @@ def show_aqi_card(aqi):
 # Greeting + input
 hr = datetime.datetime.now().hour
 greet = "Good morning" if hr < 12 else "Good afternoon" if hr < 18 else "Good evening"
-st.title("🌦️ Weather Dashboard")
+st.title("🌦️ Airvue")
 st.markdown(f"_{greet}! Compare forecasts, AQI, and explore weather data._")
 st.markdown("💡 Enter a location (e.g., New York or 10001). For international ZIP codes, use: postal code, country code (e.g., 10115,de or 110001,in)")
 
