@@ -210,3 +210,14 @@ if st.session_state.weather_data:
         show_5day_table(forecast, unit)
         show_map(coords["lat"], coords["lon"])
         show_youtube(loc1)
+        
+# About Section
+st.markdown("---")
+st.markdown("### 👤 About This App")
+st.markdown("Developed by Ananya Malhotra")
+
+st.markdown("### 🚀 About Product Manager Accelerator")
+st.markdown("""
+Product Manager Accelerator (PMA) is a global community and coaching platform founded by Dr. Nancy Li. PMA empowers aspiring and experienced product managers to break into and excel in product management careers. Through hands on training, AI-powered tools, and expert mentorship, PMA has helped thousands of professionals land roles at top companies like Meta, Google, Amazon, and more.
+""")
+
