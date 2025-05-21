@@ -1,21 +1,20 @@
 import streamlit as st
 import requests
 import pandas as pd
+import base64
+import json
+import datetime
 
 st.set_page_config(page_title="Weather App", layout="centered")
-
 API_KEY = st.secrets["WEATHER_API_KEY"]
 
 def get_coords(location):
-    # Try as ZIP code (U.S.)
     if location.isdigit():
         zip_url = f"http://api.openweathermap.org/data/2.5/weather?zip={location},us&appid={API_KEY}"
         res = requests.get(zip_url)
         if res.status_code == 200:
             data = res.json()
             return data["coord"], None
-
-    # Fallback to geocoding city name
     geo_url = f"http://api.openweathermap.org/geo/1.0/direct?q={location}&limit=1&appid={API_KEY}"
     geo_res = requests.get(geo_url).json()
     if geo_res:
@@ -28,18 +27,44 @@ def get_weather_data(location):
         return None, err
     lat = coords["lat"]
     lon = coords["lon"]
-
     weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&units=metric&appid={API_KEY}"
     forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&units=metric&appid={API_KEY}"
     try:
         weather = requests.get(weather_url).json()
         forecast = requests.get(forecast_url).json()
-        return {"weather": weather, "forecast": forecast}, None
+        return {"weather": weather, "forecast": forecast, "coords": coords}, None
     except:
         return None, "Failed to retrieve weather data."
 
+def generate_pdf_download_link(df):
+    html = df.to_html(index=False)
+    b64 = base64.b64encode(html.encode()).decode()
+    return f'<a href="data:application/octet-stream;base64,{b64}" download="forecast.html">📄 Download as PDF (HTML)</a>'
+
+def generate_json_download(data):
+    json_data = json.dumps(data, indent=2)
+    b64 = base64.b64encode(json_data.encode()).decode()
+    return f'<a href="data:application/json;base64,{b64}" download="forecast.json">🔽 Download as JSON</a>'
+
+def get_youtube_video_url(query):
+    return f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}+weather"
+
+def google_maps_url(lat, lon):
+    return f"https://www.google.com/maps?q={lat},{lon}"
+
+# Time-based greeting
+hour = datetime.datetime.now().hour
+if hour < 12:
+    greeting = "Good morning"
+elif hour < 18:
+    greeting = "Good afternoon"
+else:
+    greeting = "Good evening"
+
 st.title("🌤️ Weather App")
-location = st.text_input("Enter a city or zip code:")
+st.markdown(f"_{greeting}! Check the weather, forecast, and explore your location below._")
+
+location = st.text_input("Enter a city or U.S. zip code:")
 
 if st.button("Get Weather") and location:
     with st.spinner("Fetching weather..."):
@@ -48,14 +73,17 @@ if st.button("Get Weather") and location:
             st.error(error)
         else:
             weather = data["weather"]
+            forecast_data = data["forecast"]
+            coords = data["coords"]
+
             st.subheader(f"Current Weather in {weather['name']}, {weather['sys']['country']}")
             st.write(f"**{weather['weather'][0]['main']}** — {weather['weather'][0]['description'].capitalize()}")
             st.metric("Temperature (°C)", weather["main"]["temp"])
             st.metric("Humidity (%)", weather["main"]["humidity"])
             st.metric("Wind (m/s)", weather["wind"]["speed"])
 
-            st.subheader("5-Day Forecast")
-            forecast = data["forecast"]["list"]
+            st.subheader("📅 5-Day Forecast")
+            forecast = forecast_data["list"]
             filtered = forecast[::8]
             df = pd.DataFrame([{
                 "Date": f["dt_txt"],
@@ -63,4 +91,13 @@ if st.button("Get Weather") and location:
                 "Temp (°C)": f["main"]["temp"]
             } for f in filtered])
             st.table(df)
-            st.download_button("Download CSV", df.to_csv(index=False), file_name="forecast.csv", mime="text/csv")
+
+            st.download_button("⬇️ Download CSV", df.to_csv(index=False), file_name="forecast.csv", mime="text/csv")
+            st.markdown(generate_pdf_download_link(df), unsafe_allow_html=True)
+            st.markdown(generate_json_download(filtered), unsafe_allow_html=True)
+
+            st.subheader("📍 Location")
+            st.markdown(f"[View on Google Maps]({google_maps_url(coords['lat'], coords['lon'])})")
+
+            st.subheader("📺 Related YouTube Search")
+            st.markdown(f"[Watch weather videos for this location]({get_youtube_video_url(location)})")
