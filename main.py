@@ -90,7 +90,10 @@ def show_hourly_chart(forecast, metric):
         "Humidity": f["main"]["humidity"],
         "Wind": f["wind"]["speed"]
     } for f in forecast[:8]])
-    fig = px.line(df, x="Time", y=metric, title=f"{metric} over next 24h", markers=True)
+    col_map = {"Temperature": "Temp", "Humidity": "Humidity", "Wind": "Wind"}
+    y_col = col_map.get(metric, metric)
+    fig = px.line(df, x="Time", y=y_col, title=f"{metric} over next 24h", markers=True)
+
     st.plotly_chart(fig, use_container_width=True)
 
 def show_5day_table(forecast, unit):
