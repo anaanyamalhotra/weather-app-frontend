@@ -14,7 +14,6 @@ for key in ["weather_data", "compare_data"]:
     if key not in st.session_state:
         st.session_state[key] = None
 
-# API helpers
 def get_coords(location):
     res = requests.get(f"http://api.openweathermap.org/geo/1.0/direct?q={location}&limit=1&appid={API_KEY}").json()
     return ({"lat": res[0]["lat"], "lon": res[0]["lon"]}, None) if res else (None, "Location not found.")
@@ -42,7 +41,6 @@ def get_weather_data(location, unit):
     aqi = get_air_quality(lat, lon)
     return {"weather": weather, "forecast": forecast, "coords": coords, "aqi": aqi}, None
 
-# UI helpers
 def show_alerts(w):
     alerts = []
     if w['main']['temp'] > 38: alerts.append("🔥 Extreme heat")
@@ -65,16 +63,16 @@ def show_youtube(location):
             <a href="{youtube_url}" target="_blank" style="text-decoration: none; color: #1e90ff; font-weight: 600;">
                 ▶️ Watch weather videos for {location.title()}
             </a>
-         </div>
-         """,
-         unsafe_allow_html=True
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
 def show_hourly_chart(forecast, metric):
     df = pd.DataFrame([{
-        "Time": f["dt_txt"], 
-        "Temp": f["main"]["temp"], 
-        "Humidity": f["main"]["humidity"], 
+        "Time": f["dt_txt"],
+        "Temp": f["main"]["temp"],
+        "Humidity": f["main"]["humidity"],
         "Wind": f["wind"]["speed"]
     } for f in forecast[:8]])
     fig = px.line(df, x="Time", y=metric, title=f"{metric} over next 24h", markers=True)
@@ -88,13 +86,49 @@ def show_5day_table(forecast, unit):
     } for f in forecast[::8]]
     st.dataframe(pd.DataFrame(data), use_container_width=True)
 
-# Greeting
+def show_aqi_card(aqi):
+    if isinstance(aqi, dict):
+        aqi_score = aqi['aqi']
+        components = aqi['components']
+
+        aqi_label = {
+            1: "🟢 Good", 2: "🟡 Fair", 3: "🟠 Moderate", 4: "🔴 Poor", 5: "🟣 Very Poor"
+        }
+
+        st.markdown(f"""
+        <div style='background-color:#111; padding:1em; border-radius:10px; border: 1px solid #444; margin-bottom: 1em;'>
+            <h4 style='margin:0 0 0.5em 0;'>🌫️ Air Quality Index: 
+            <span style='color:#1e90ff'>{aqi_score} — {aqi_label.get(aqi_score, "Unknown")}</span></h4>
+        </div>
+        """, unsafe_allow_html=True)
+
+        def get_pollutant_level(name, value):
+            if name in ["pm2_5", "pm10"]:
+                return "🟢 Low" if value <= 12 else "🟡 Moderate" if value <= 35 else "🔴 High"
+            elif name == "o3":
+                return "🟢 Low" if value <= 100 else "🟡 Moderate" if value <= 160 else "🔴 High"
+            elif name == "co":
+                return "🟢 Low" if value <= 1000 else "🟡 Moderate" if value <= 2000 else "🔴 High"
+            else:
+                return "⚪️"
+
+        labels = {
+            "pm2_5": "PM2.5", "pm10": "PM10", "co": "CO", "no": "NO", "no2": "NO₂", "o3": "O₃", "so2": "SO₂", "nh3": "NH₃"
+        }
+
+        df = pd.DataFrame([{
+            "Pollutant": labels.get(k, k.upper()),
+            "Level": get_pollutant_level(k, v),
+            "µg/m³": round(v, 2)
+        } for k, v in components.items()])
+        st.dataframe(df, hide_index=True, use_container_width=True)
+
+# Greeting + input
 hr = datetime.datetime.now().hour
 greet = "Good morning" if hr < 12 else "Good afternoon" if hr < 18 else "Good evening"
 st.title("🌦️ Weather Dashboard")
-st.markdown(f"_{greet}! Compare forecasts, maps, AQI, and more._")
-
-st.markdown("💡 Input city or ZIP. International ZIPs: `10115,de` (Berlin), `110001,in` (Delhi)")
+st.markdown(f"_{greet}! Compare forecasts, AQI, and explore weather data._")
+st.markdown("💡 Input city or ZIP. Use `10115,de` or `110001,in` for international formats.")
 
 colL, colR = st.columns(2)
 with colL:
@@ -105,12 +139,9 @@ with colR:
 
 if st.button("Get Weather"):
     st.session_state.weather_data, _ = get_weather_data(loc1, unit)
-    if loc2:
-        st.session_state.compare_data, _ = get_weather_data(loc2, unit)
-    else:
-        st.session_state.compare_data = None
+    st.session_state.compare_data = get_weather_data(loc2, unit)[0] if loc2 else None
 
-# Side-by-side comparison
+# Main display
 if st.session_state.weather_data:
     w1 = st.session_state.weather_data
     w2 = st.session_state.compare_data
@@ -118,78 +149,31 @@ if st.session_state.weather_data:
     if w2:
         col1, col2 = st.columns(2)
 
-        # Location 1
         with col1:
             weather, forecast, coords, aqi = w1["weather"], w1["forecast"]["list"], w1["coords"], w1["aqi"]
             st.subheader(f"📍 {weather['name']}, {weather['sys']['country']}")
             st.metric("Temperature", weather["main"]["temp"])
             st.metric("Humidity", weather["main"]["humidity"])
             st.metric("Wind", weather["wind"]["speed"])
-            if isinstance(aqi, dict):
-    aqi_score = aqi['aqi']
-    components = aqi['components']
-
-    aqi_label = {
-        1: "🟢 Good",
-        2: "🟡 Fair",
-        3: "🟠 Moderate",
-        4: "🔴 Poor",
-        5: "🟣 Very Poor"
-    }
-
-    st.markdown(f"""
-    <div style='background-color:#111; padding:1em; border-radius:10px; border: 1px solid #444; margin-bottom: 1em;'>
-        <h4 style='margin:0 0 0.5em 0;'>🌫️ Air Quality Index: 
-        <span style='color:#1e90ff'>{aqi_score} — {aqi_label.get(aqi_score, "Unknown")}</span></h4>
-    </div>
-    """, unsafe_allow_html=True)
-
-    def get_pollutant_level(name, value):
-        if name in ["pm2_5", "pm10"]:
-            return "🟢 Low" if value <= 12 else "🟡 Moderate" if value <= 35 else "🔴 High"
-        elif name == "o3":
-            return "🟢 Low" if value <= 100 else "🟡 Moderate" if value <= 160 else "🔴 High"
-        elif name == "co":
-            return "🟢 Low" if value <= 1000 else "🟡 Moderate" if value <= 2000 else "🔴 High"
-        else:
-            return "⚪️"
-
-    labels = {
-        "pm2_5": "PM2.5", "pm10": "PM10", "co": "CO",
-        "no": "NO", "no2": "NO₂", "o3": "O₃",
-        "so2": "SO₂", "nh3": "NH₃"
-    }
-
-    rows = []
-    for key, val in components.items():
-        rows.append({
-            "Pollutant": labels.get(key, key.upper()),
-            "Level": get_pollutant_level(key, val),
-            "µg/m³": round(val, 2)
-        })
-
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
-
+            show_aqi_card(aqi)
             show_alerts(weather)
             show_hourly_chart(forecast, "Temp")
             show_5day_table(forecast, unit)
             show_map(coords["lat"], coords["lon"])
             show_youtube(loc1)
 
-        # Location 2
         with col2:
             weather, forecast, coords, aqi = w2["weather"], w2["forecast"]["list"], w2["coords"], w2["aqi"]
             st.subheader(f"📍 {weather['name']}, {weather['sys']['country']}")
             st.metric("Temperature", weather["main"]["temp"])
             st.metric("Humidity", weather["main"]["humidity"])
             st.metric("Wind", weather["wind"]["speed"])
-            if aqi: st.info(f"AQI: {aqi}")
+            show_aqi_card(aqi)
             show_alerts(weather)
             show_hourly_chart(forecast, "Temp")
             show_5day_table(forecast, unit)
             show_map(coords["lat"], coords["lon"])
             show_youtube(loc2)
-
     else:
         weather = w1["weather"]
         forecast = w1["forecast"]["list"]
@@ -200,7 +184,7 @@ if st.session_state.weather_data:
         st.metric("Temperature", weather["main"]["temp"])
         st.metric("Humidity", weather["main"]["humidity"])
         st.metric("Wind", weather["wind"]["speed"])
-        if aqi: st.info(f"AQI: {aqi}")
+        show_aqi_card(aqi)
         show_alerts(weather)
 
         metric = st.selectbox("Choose metric to plot", ["Temp", "Humidity", "Wind"])
@@ -208,7 +192,3 @@ if st.session_state.weather_data:
         show_5day_table(forecast, unit)
         show_map(coords["lat"], coords["lon"])
         show_youtube(loc1)
-
-
-
-
