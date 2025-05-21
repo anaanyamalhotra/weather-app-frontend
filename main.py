@@ -48,7 +48,18 @@ def show_map(lat, lon):
     st_folium(m, width=700, height=500)
 
 def show_youtube(location):
-    st.markdown(f"[📺 Watch weather videos for {location}](https://www.youtube.com/results?search_query={location.replace(' ', '+')}+weather)")
+    youtube_url = f"https://www.youtube.com/results?search_query={location.replace(' ', '+')}+weather"
+st.markdown(
+    f"""
+    <div style='padding: 0.5em 1em; background-color: #1e1e1e; border: 1px solid #444; border-radius: 8px;'>
+        <h4 style='margin: 0 0 0.5em 0;'>📺 Related Weather Videos</h4>
+        <a href="{youtube_url}" target="_blank" style="text-decoration: none; color: #1e90ff; font-weight: 600;">
+            ▶️ Watch weather videos for {location.title()}
+        </a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 def show_hourly_chart(forecast, metric):
     df = pd.DataFrame([{
