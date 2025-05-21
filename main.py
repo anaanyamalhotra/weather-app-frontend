@@ -20,8 +20,17 @@ def get_coords(location):
     return ({"lat": res[0]["lat"], "lon": res[0]["lon"]}, None) if res else (None, "Location not found.")
 
 def get_air_quality(lat, lon):
-    res = requests.get(f"http://api.openweathermap.org/data/2.5/air_pollution?lat={lat}&lon={lon}&appid={API_KEY}").json()
-    return res.get("list", [{}])[0].get("main", {}).get("aqi")
+    url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={lat}&lon={lon}&appid={API_KEY}"
+    res = requests.get(url).json()
+    if "list" in res and res["list"]:
+        data = res["list"][0]
+        aqi = data["main"]["aqi"]
+        components = data["components"]
+        return {
+            "aqi": aqi,
+            "components": components
+        }
+    return None
 
 def get_weather_data(location, unit):
     coords, err = get_coords(location)
