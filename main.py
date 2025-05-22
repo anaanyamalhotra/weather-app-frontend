@@ -1,3 +1,4 @@
+
 import streamlit as st
 import requests
 import pandas as pd
@@ -7,7 +8,7 @@ import folium
 from streamlit_folium import st_folium
 
 st.set_page_config(page_title="🌦️ Airvue", layout="wide")
-BACKEND_URL = "https://weather-api-backend-ynon.onrender.com"
+BACKEND_URL = "https://weather-api-backend-1.onrender.com"
 
 for key in ["weather_data", "compare_data"]:
     if key not in st.session_state:
@@ -21,6 +22,21 @@ def fetch_weather_from_backend(location, unit):
         return None, f"Error {res.status_code}"
     except Exception as e:
         return None, str(e)
+
+def save_to_backend(location, weather, aqi):
+    try:
+        payload = {
+            "location": location,
+            "temperature": weather["main"]["temp"],
+            "humidity": weather["main"]["humidity"],
+            "wind": weather["wind"]["speed"],
+            "aqi": aqi["aqi"] if isinstance(aqi, dict) else 0
+        }
+        res = requests.post(f"{BACKEND_URL}/records/", json=payload)
+        if res.status_code == 200:
+            st.success("✅ Saved weather data to database.")
+    except Exception as e:
+        st.warning(f"⚠️ Could not save to database: {e}")
 
 def show_alerts(w):
     alerts = []
@@ -104,11 +120,8 @@ def show_aqi_card(aqi):
         } for k, v in components.items()])
         st.dataframe(df, hide_index=True, use_container_width=True)
 
-# UI and logic
-hr = datetime.datetime.now().hour
-greet = "Good morning" if hr < 12 else "Good afternoon" if hr < 18 else "Good evening"
+# Main UI
 st.title("🌦️ Airvue")
-st.markdown(f"_{greet}! Compare forecasts, AQI, and explore weather data._")
 st.markdown("💡 Enter a location (e.g., New York or 10001). For international ZIP codes, use: postal code, country code (e.g., 10115,de or 110001,in)")
 
 colL, colR = st.columns(2)
@@ -123,6 +136,7 @@ if st.button("Get Weather"):
     st.session_state.weather_data, _ = fetch_weather_from_backend(loc1, unit_api)
     st.session_state.compare_data, _ = fetch_weather_from_backend(loc2, unit_api) if loc2 else (None, None)
 
+# Main Output
 if st.session_state.weather_data:
     w1 = st.session_state.weather_data
     w2 = st.session_state.compare_data
@@ -133,15 +147,16 @@ if st.session_state.weather_data:
             with col:
                 weather, forecast, coords, aqi = data["weather"], data["forecast"]["list"], data["coords"], data["aqi"]
                 st.subheader(f"📍 {weather['name']}, {weather['sys']['country']}")
-                st.metric("Temperature", weather["main"]["temp"])
-                st.metric("Humidity", weather["main"]["humidity"])
-                st.metric("Wind", weather["wind"]["speed"])
+                st.metric("🌡️ Temperature", f"{weather['main'].get('temp', 'N/A')} °{ 'C' if unit_api == 'metric' else 'F'}")
+                st.metric("💧 Humidity", f"{weather['main'].get('humidity', 'N/A')}%")
+                st.metric("💨 Wind", f"{weather['wind'].get('speed', 'N/A')} m/s")
                 show_aqi_card(aqi)
                 show_alerts(weather)
                 show_hourly_chart(forecast, "Temperature")
                 show_5day_table(forecast, unit_api)
                 show_map(coords["lat"], coords["lon"])
                 show_youtube(loc)
+                save_to_backend(loc, weather, aqi)
     else:
         weather = w1["weather"]
         forecast = w1["forecast"]["list"]
@@ -149,9 +164,9 @@ if st.session_state.weather_data:
         aqi = w1["aqi"]
 
         st.subheader(f"📍 {weather['name']}, {weather['sys']['country']}")
-        st.metric("Temperature", weather["main"]["temp"])
-        st.metric("Humidity", weather["main"]["humidity"])
-        st.metric("Wind", weather["wind"]["speed"])
+        st.metric("🌡️ Temperature", f"{weather['main'].get('temp', 'N/A')} °{ 'C' if unit_api == 'metric' else 'F'}")
+        st.metric("💧 Humidity", f"{weather['main'].get('humidity', 'N/A')}%")
+        st.metric("💨 Wind", f"{weather['wind'].get('speed', 'N/A')} m/s")
         show_aqi_card(aqi)
         show_alerts(weather)
 
@@ -160,6 +175,21 @@ if st.session_state.weather_data:
         show_5day_table(forecast, unit_api)
         show_map(coords["lat"], coords["lon"])
         show_youtube(loc1)
+        save_to_backend(loc1, weather, aqi)
+
+# Admin Tab for record viewing
+st.markdown("---")
+if st.checkbox("🗂️ Show Saved Weather Records (DB)"):
+    try:
+        r = requests.get(f"{BACKEND_URL}/records/")
+        if r.status_code == 200:
+            df = pd.DataFrame(r.json())
+            st.dataframe(df)
+            st.download_button("📥 Export as CSV", data=df.to_csv(index=False), file_name="weather_history.csv", mime="text/csv")
+        else:
+            st.warning("Could not load records.")
+    except Exception as e:
+        st.error(f"Error: {e}")
 
 # About Section
 st.markdown("---")
