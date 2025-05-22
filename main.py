@@ -25,12 +25,13 @@ def fetch_weather_from_backend(location, unit):
 
 def save_to_backend(location, weather, aqi):
     try:
+        aqi_value = aqi["aqi"] if isinstance(aqi, dict) and "aqi" in aqi else 0
         payload = {
             "location": location,
             "temperature": weather["main"]["temp"],
             "humidity": weather["main"]["humidity"],
             "wind": weather["wind"]["speed"],
-            "aqi": aqi["aqi"] if isinstance(aqi, dict) else 0
+            "aqi": aqi_value
         }
         res = requests.post(f"{BACKEND_URL}/records/", json=payload)
         if res.status_code == 200:
