@@ -169,13 +169,13 @@ if st.session_state.weather_data:
                    "📊 Choose metric to plot", 
                    ["Temperature", "Humidity", "Wind"], 
                    key=f"metric_{loc}"
-              )
+               )
 
-            show_hourly_chart(forecast, metric)
-            show_5day_table(forecast, unit_api)
-            show_map(coords["lat"], coords["lon"])
-            show_youtube(loc)
-            save_to_backend(loc, weather, aqi)
+               show_hourly_chart(forecast, metric)
+               show_5day_table(forecast, unit_api)
+               show_map(coords["lat"], coords["lon"])
+               show_youtube(loc)
+               save_to_backend(loc, weather, aqi)
     else:
         weather = w1["weather"]
         forecast = w1["forecast"]["list"]
