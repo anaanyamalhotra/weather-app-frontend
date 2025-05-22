@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 import pandas as pd
@@ -25,20 +24,19 @@ def fetch_weather_from_backend(location, unit):
 
 def save_to_backend(location, weather, aqi):
     try:
-        aqi_value = aqi.get("aqi", 0) if isinstance(aqi, dict) else 0
         payload = {
             "location": location,
             "temperature": weather["main"]["temp"],
             "humidity": weather["main"]["humidity"],
             "wind": weather["wind"]["speed"],
-            "aqi": aqi_value
+            "aqi": aqi["aqi"] if isinstance(aqi, dict) else 0
         }
         res = requests.post(f"{BACKEND_URL}/records/", json=payload)
         if res.status_code == 200:
             st.success("✅ Saved weather data to database.")
     except Exception as e:
         st.warning(f"⚠️ Could not save to database: {e}")
-        
+
 def show_alerts(w):
     alerts = []
     if w['main']['temp'] > 38: alerts.append("🔥 Extreme heat")
@@ -87,47 +85,39 @@ def show_5day_table(forecast, unit):
     st.dataframe(pd.DataFrame(data), use_container_width=True)
 
 def show_aqi_card(aqi):
-    if not isinstance(aqi, dict) or "aqi" not in aqi:
-        st.warning("⚠️ Air Quality data not available for this location.")
-        return
+    if isinstance(aqi, dict):
+        aqi_score = aqi['aqi']
+        components = aqi['components']
+        aqi_label = {
+            1: "🟢 Good", 2: "🟡 Fair", 3: "🟠 Moderate", 4: "🔴 Poor", 5: "🟣 Very Poor"
+        }
+        st.markdown(f"""
+        <div style='background-color:#111; padding:1em; border-radius:10px; border: 1px solid #444; margin-bottom: 1em;'>
+            <h4 style='margin:0 0 0.5em 0;'>🌫️ Air Quality Index: 
+            <span style='color:#1e90ff'>{aqi_score} — {aqi_label.get(aqi_score, "Unknown")}</span></h4>
+        </div>
+        """, unsafe_allow_html=True)
 
-    aqi_score = aqi['aqi']
-    components = aqi.get('components', {})
-    aqi_label = {
-        1: "🟢 Good", 2: "🟡 Fair", 3: "🟠 Moderate", 4: "🔴 Poor", 5: "🟣 Very Poor"
-    }
+        def get_pollutant_level(name, value):
+            if name in ["pm2_5", "pm10"]:
+                return "🟢 Low" if value <= 12 else "🟡 Moderate" if value <= 35 else "🔴 High"
+            elif name == "o3":
+                return "🟢 Low" if value <= 100 else "🟡 Moderate" if value <= 160 else "🔴 High"
+            elif name == "co":
+                return "🟢 Low" if value <= 1000 else "🟡 Moderate" if value <= 2000 else "🔴 High"
+            else:
+                return "⚪️"
 
-    st.markdown(f"""
-    <div style='background-color:#111; padding:1em; border-radius:10px; border: 1px solid #444; margin-bottom: 1em;'>
-        <h4 style='margin:0 0 0.5em 0;'>🌫️ Air Quality Index: 
-        <span style='color:#1e90ff'>{aqi_score} — {aqi_label.get(aqi_score, "Unknown")}</span></h4>
-    </div>
-    """, unsafe_allow_html=True)
+        labels = {
+            "pm2_5": "PM2.5", "pm10": "PM10", "co": "CO", "no": "NO", "no2": "NO₂", "o3": "O₃", "so2": "SO₂", "nh3": "NH₃"
+        }
 
-    if not components:
-        st.info("No detailed pollutant data available.")
-        return
-
-    def get_pollutant_level(name, value):
-        if name in ["pm2_5", "pm10"]:
-            return "🟢 Low" if value <= 12 else "🟡 Moderate" if value <= 35 else "🔴 High"
-        elif name == "o3":
-            return "🟢 Low" if value <= 100 else "🟡 Moderate" if value <= 160 else "🔴 High"
-        elif name == "co":
-            return "🟢 Low" if value <= 1000 else "🟡 Moderate" if value <= 2000 else "🔴 High"
-        else:
-            return "⚪️"
-
-    labels = {
-        "pm2_5": "PM2.5", "pm10": "PM10", "co": "CO", "no": "NO", "no2": "NO₂", "o3": "O₃", "so2": "SO₂", "nh3": "NH₃"
-    }
-
-    df = pd.DataFrame([{
-        "Pollutant": labels.get(k, k.upper()),
-        "Level": get_pollutant_level(k, v),
-        "µg/m³": round(v, 2)
-    } for k, v in components.items()])
-    st.dataframe(df, hide_index=True, use_container_width=True)
+        df = pd.DataFrame([{
+            "Pollutant": labels.get(k, k.upper()),
+            "Level": get_pollutant_level(k, v),
+            "µg/m³": round(v, 2)
+        } for k, v in components.items()])
+        st.dataframe(df, hide_index=True, use_container_width=True)
 
 # Main UI
 st.title("🌦️ Airvue")
@@ -151,18 +141,17 @@ if st.session_state.weather_data:
     w2 = st.session_state.compare_data
 
     if w2:
-        metric = st.selectbox("Choose metric to plot", ["Temperature", "Humidity", "Wind"])
         col1, col2 = st.columns(2)
         for col, data, loc in zip([col1, col2], [w1, w2], [loc1, loc2]):
             with col:
-                weather, forecast, coords, aqi = data["weather"], data["forecast"]["list"], data["coords"], data.get("aqi", None)
+                weather, forecast, coords, aqi = data["weather"], data["forecast"]["list"], data["coords"], data["aqi"]
                 st.subheader(f"📍 {weather['name']}, {weather['sys']['country']}")
                 st.metric("🌡️ Temperature", f"{weather['main'].get('temp', 'N/A')} °{ 'C' if unit_api == 'metric' else 'F'}")
                 st.metric("💧 Humidity", f"{weather['main'].get('humidity', 'N/A')}%")
                 st.metric("💨 Wind", f"{weather['wind'].get('speed', 'N/A')} m/s")
                 show_aqi_card(aqi)
                 show_alerts(weather)
-                show_hourly_chart(forecast, metric)
+                show_hourly_chart(forecast, "Temperature")
                 show_5day_table(forecast, unit_api)
                 show_map(coords["lat"], coords["lon"])
                 show_youtube(loc)
