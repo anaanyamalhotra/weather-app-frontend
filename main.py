@@ -169,7 +169,7 @@ if st.session_state.weather_data:
                    "📊 Choose metric to plot", 
                    ["Temperature", "Humidity", "Wind"], 
                    key=f"metric_{loc}"
-               )
+              )
 
             show_hourly_chart(forecast, metric)
             show_5day_table(forecast, unit_api)
