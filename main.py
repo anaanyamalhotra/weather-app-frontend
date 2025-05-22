@@ -87,12 +87,12 @@ def show_5day_table(forecast, unit):
     st.dataframe(pd.DataFrame(data), use_container_width=True)
 
 def show_aqi_card(aqi):
-    if not isinstance(aqi, dict) or "aqi" not in aqi or "components" not in aqi:
+    if not isinstance(aqi, dict) or "aqi" not in aqi:
         st.warning("⚠️ Air Quality data not available for this location.")
         return
 
     aqi_score = aqi['aqi']
-    components = aqi['components']
+    components = aqi.get('components', {})
     aqi_label = {
         1: "🟢 Good", 2: "🟡 Fair", 3: "🟠 Moderate", 4: "🔴 Poor", 5: "🟣 Very Poor"
     }
@@ -103,6 +103,10 @@ def show_aqi_card(aqi):
         <span style='color:#1e90ff'>{aqi_score} — {aqi_label.get(aqi_score, "Unknown")}</span></h4>
     </div>
     """, unsafe_allow_html=True)
+
+    if not components:
+        st.info("No detailed pollutant data available.")
+        return
 
     def get_pollutant_level(name, value):
         if name in ["pm2_5", "pm10"]:
@@ -115,8 +119,7 @@ def show_aqi_card(aqi):
             return "⚪️"
 
     labels = {
-        "pm2_5": "PM2.5", "pm10": "PM10", "co": "CO", "no": "NO", "no2": "NO₂",
-        "o3": "O₃", "so2": "SO₂", "nh3": "NH₃"
+        "pm2_5": "PM2.5", "pm10": "PM10", "co": "CO", "no": "NO", "no2": "NO₂", "o3": "O₃", "so2": "SO₂", "nh3": "NH₃"
     }
 
     df = pd.DataFrame([{
