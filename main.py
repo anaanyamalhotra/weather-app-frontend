@@ -131,24 +131,24 @@ if st.session_state.weather_data:
     w2 = st.session_state.compare_data
 
     if w2:
-    # 🆕 Fix: Add this line to define `metric`
-    metric = st.selectbox("Choose metric to plot", ["Temperature", "Humidity", "Wind"])
     
-    col1, col2 = st.columns(2)
-    for col, data, loc in zip([col1, col2], [w1, w2], [loc1, loc2]):
-        with col:
-            weather, forecast, coords, aqi = data["weather"], data["forecast"]["list"], data["coords"], data.get("aqi", None)
-            st.subheader(f"📍 {weather['name']}, {weather['sys']['country']}")
-            st.metric("🌡️ Temperature", f"{weather['main'].get('temp', 'N/A')} °{ 'C' if unit_api == 'metric' else 'F'}")
-            st.metric("💧 Humidity", f"{weather['main'].get('humidity', 'N/A')}%")
-            st.metric("💨 Wind", f"{weather['wind'].get('speed', 'N/A')} m/s")
-            show_aqi_card(aqi)
-            show_alerts(weather)
-            show_hourly_chart(forecast, metric)
-            show_5day_table(forecast, unit_api)
-            show_map(coords["lat"], coords["lon"])
-            show_youtube(loc)
-            save_to_backend(loc, weather, aqi)
+       metric = st.selectbox("Choose metric to plot", ["Temperature", "Humidity", "Wind"])
+    
+       col1, col2 = st.columns(2)
+       for col, data, loc in zip([col1, col2], [w1, w2], [loc1, loc2]):
+           with col:
+               weather, forecast, coords, aqi = data["weather"], data["forecast"]["list"], data["coords"], data.get("aqi", None)
+               st.subheader(f"📍 {weather['name']}, {weather['sys']['country']}")
+               st.metric("🌡️ Temperature", f"{weather['main'].get('temp', 'N/A')} °{ 'C' if unit_api == 'metric' else 'F'}")
+               st.metric("💧 Humidity", f"{weather['main'].get('humidity', 'N/A')}%")
+               st.metric("💨 Wind", f"{weather['wind'].get('speed', 'N/A')} m/s")
+               show_aqi_card(aqi)
+               show_alerts(weather)
+               show_hourly_chart(forecast, metric)
+               show_5day_table(forecast, unit_api)
+               show_map(coords["lat"], coords["lon"])
+               show_youtube(loc)
+               save_to_backend(loc, weather, aqi)
     else:
         weather = w1["weather"]
         forecast = w1["forecast"]["list"]
