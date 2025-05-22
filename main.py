@@ -130,7 +130,7 @@ if st.session_state.weather_data:
     w1 = st.session_state.weather_data
     w2 = st.session_state.compare_data
 
-  if w2:
+if w2:
     # 🆕 Fix: Add this line to define `metric`
     metric = st.selectbox("Choose metric to plot", ["Temperature", "Humidity", "Wind"])
     
