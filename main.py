@@ -152,9 +152,10 @@ if st.session_state.weather_data:
     w1 = st.session_state.weather_data
     w2 = st.session_state.compare_data
     
-    metric = st.selectbox("📊 Choose metric to plot", ["Temperature", "Humidity", "Wind"])
+    
     if w2:
         col1, col2 = st.columns(2)
+        metric = st.selectbox("📊 Choose metric to plot", ["Temperature", "Humidity", "Wind"])
         for col, data, loc in zip([col1, col2], [w1, w2], [loc1, loc2]):
             with col:
                 weather, forecast, coords, aqi = data["weather"], data["forecast"]["list"], data["coords"], data["aqi"]
