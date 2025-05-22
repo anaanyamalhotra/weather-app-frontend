@@ -7,54 +7,20 @@ import folium
 from streamlit_folium import st_folium
 
 st.set_page_config(page_title="🌦️ Airvue", layout="wide")
-API_KEY = st.secrets["WEATHER_API_KEY"]
+BACKEND_URL = "https://weather-api-backend-ynon.onrender.com"
 
-# Session setup
 for key in ["weather_data", "compare_data"]:
     if key not in st.session_state:
         st.session_state[key] = None
 
-def get_coords(location):
-    if "," in location and location.split(",")[0].strip().isdigit():
-        zip_code, country_code = location.split(",", 1)
-        zip_url = f"http://api.openweathermap.org/data/2.5/weather?zip={zip_code.strip()},{country_code.strip()}&appid={API_KEY}"
-        res = requests.get(zip_url)
+def fetch_weather_from_backend(location, unit):
+    try:
+        res = requests.get(f"{BACKEND_URL}/weather", params={"location": location, "unit": unit})
         if res.status_code == 200:
-            data = res.json()
-            return {"lat": data["coord"]["lat"], "lon": data["coord"]["lon"]}, None
-        else:
-            return None, "Invalid ZIP or country code."
-
-    # Fallback to city name
-    geo_url = f"http://api.openweathermap.org/geo/1.0/direct?q={location}&limit=1&appid={API_KEY}"
-    geo_res = requests.get(geo_url).json()
-    if geo_res:
-        return {"lat": geo_res[0]["lat"], "lon": geo_res[0]["lon"]}, None
-    return None, "Location not found."
-
-
-def get_air_quality(lat, lon):
-    url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={lat}&lon={lon}&appid={API_KEY}"
-    res = requests.get(url).json()
-    if "list" in res and res["list"]:
-        data = res["list"][0]
-        aqi = data["main"]["aqi"]
-        components = data["components"]
-        return {
-            "aqi": aqi,
-            "components": components
-        }
-    return None
-
-def get_weather_data(location, unit):
-    coords, err = get_coords(location)
-    if err: return None, err
-    lat, lon = coords["lat"], coords["lon"]
-    u = "metric" if unit == "Celsius" else "imperial"
-    weather = requests.get(f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&units={u}&appid={API_KEY}").json()
-    forecast = requests.get(f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&units={u}&appid={API_KEY}").json()
-    aqi = get_air_quality(lat, lon)
-    return {"weather": weather, "forecast": forecast, "coords": coords, "aqi": aqi}, None
+            return res.json(), None
+        return None, f"Error {res.status_code}"
+    except Exception as e:
+        return None, str(e)
 
 def show_alerts(w):
     alerts = []
@@ -65,7 +31,7 @@ def show_alerts(w):
 
 def show_map(lat, lon):
     m = folium.Map(location=[lat, lon], zoom_start=6)
-    folium.TileLayer(tiles='https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=' + API_KEY, attr='OpenWeatherMap').add_to(m)
+    folium.TileLayer(tiles='https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=placeholder', attr='OpenWeatherMap').add_to(m)
     folium.Marker([lat, lon], tooltip="Location").add_to(m)
     st_folium(m, width=700, height=500)
 
@@ -93,14 +59,13 @@ def show_hourly_chart(forecast, metric):
     col_map = {"Temperature": "Temp", "Humidity": "Humidity", "Wind": "Wind"}
     y_col = col_map.get(metric, metric)
     fig = px.line(df, x="Time", y=y_col, title=f"{metric} over next 24h", markers=True)
-
     st.plotly_chart(fig, use_container_width=True)
 
 def show_5day_table(forecast, unit):
     data = [{
         "Date": f["dt_txt"].split()[0],
         "Condition": f["weather"][0]["description"].capitalize(),
-        f"Temp (°{'C' if unit == 'Celsius' else 'F'})": f["main"]["temp"]
+        f"Temp (°{'C' if unit == 'metric' else 'F'})": f["main"]["temp"]
     } for f in forecast[::8]]
     st.dataframe(pd.DataFrame(data), use_container_width=True)
 
@@ -108,11 +73,9 @@ def show_aqi_card(aqi):
     if isinstance(aqi, dict):
         aqi_score = aqi['aqi']
         components = aqi['components']
-
         aqi_label = {
             1: "🟢 Good", 2: "🟡 Fair", 3: "🟠 Moderate", 4: "🔴 Poor", 5: "🟣 Very Poor"
         }
-
         st.markdown(f"""
         <div style='background-color:#111; padding:1em; border-radius:10px; border: 1px solid #444; margin-bottom: 1em;'>
             <h4 style='margin:0 0 0.5em 0;'>🌫️ Air Quality Index: 
@@ -141,7 +104,7 @@ def show_aqi_card(aqi):
         } for k, v in components.items()])
         st.dataframe(df, hide_index=True, use_container_width=True)
 
-# Greeting + input
+# UI and logic
 hr = datetime.datetime.now().hour
 greet = "Good morning" if hr < 12 else "Good afternoon" if hr < 18 else "Good evening"
 st.title("🌦️ Airvue")
@@ -152,46 +115,33 @@ colL, colR = st.columns(2)
 with colL:
     loc1 = st.text_input("Location 1")
     unit = st.radio("Temperature Unit", ["Celsius", "Fahrenheit"], horizontal=True)
+    unit_api = "metric" if unit == "Celsius" else "imperial"
 with colR:
     loc2 = st.text_input("Compare with (optional)")
 
 if st.button("Get Weather"):
-    st.session_state.weather_data, _ = get_weather_data(loc1, unit)
-    st.session_state.compare_data = get_weather_data(loc2, unit)[0] if loc2 else None
+    st.session_state.weather_data, _ = fetch_weather_from_backend(loc1, unit_api)
+    st.session_state.compare_data, _ = fetch_weather_from_backend(loc2, unit_api) if loc2 else (None, None)
 
-# Main display
 if st.session_state.weather_data:
     w1 = st.session_state.weather_data
     w2 = st.session_state.compare_data
 
     if w2:
         col1, col2 = st.columns(2)
-
-        with col1:
-            weather, forecast, coords, aqi = w1["weather"], w1["forecast"]["list"], w1["coords"], w1["aqi"]
-            st.subheader(f"📍 {weather['name']}, {weather['sys']['country']}")
-            st.metric("Temperature", weather["main"]["temp"])
-            st.metric("Humidity", weather["main"]["humidity"])
-            st.metric("Wind", weather["wind"]["speed"])
-            show_aqi_card(aqi)
-            show_alerts(weather)
-            show_hourly_chart(forecast, "Temp")
-            show_5day_table(forecast, unit)
-            show_map(coords["lat"], coords["lon"])
-            show_youtube(loc1)
-
-        with col2:
-            weather, forecast, coords, aqi = w2["weather"], w2["forecast"]["list"], w2["coords"], w2["aqi"]
-            st.subheader(f"📍 {weather['name']}, {weather['sys']['country']}")
-            st.metric("Temperature", weather["main"]["temp"])
-            st.metric("Humidity", weather["main"]["humidity"])
-            st.metric("Wind", weather["wind"]["speed"])
-            show_aqi_card(aqi)
-            show_alerts(weather)
-            show_hourly_chart(forecast, "Temp")
-            show_5day_table(forecast, unit)
-            show_map(coords["lat"], coords["lon"])
-            show_youtube(loc2)
+        for col, data, loc in zip([col1, col2], [w1, w2], [loc1, loc2]):
+            with col:
+                weather, forecast, coords, aqi = data["weather"], data["forecast"]["list"], data["coords"], data["aqi"]
+                st.subheader(f"📍 {weather['name']}, {weather['sys']['country']}")
+                st.metric("Temperature", weather["main"]["temp"])
+                st.metric("Humidity", weather["main"]["humidity"])
+                st.metric("Wind", weather["wind"]["speed"])
+                show_aqi_card(aqi)
+                show_alerts(weather)
+                show_hourly_chart(forecast, "Temperature")
+                show_5day_table(forecast, unit_api)
+                show_map(coords["lat"], coords["lon"])
+                show_youtube(loc)
     else:
         weather = w1["weather"]
         forecast = w1["forecast"]["list"]
@@ -207,10 +157,10 @@ if st.session_state.weather_data:
 
         metric = st.selectbox("Choose metric to plot", ["Temperature", "Humidity", "Wind"])
         show_hourly_chart(forecast, metric)
-        show_5day_table(forecast, unit)
+        show_5day_table(forecast, unit_api)
         show_map(coords["lat"], coords["lon"])
         show_youtube(loc1)
-        
+
 # About Section
 st.markdown("---")
 st.markdown("### 👤 About This App")
@@ -220,4 +170,5 @@ st.markdown("### 🚀 About Product Manager Accelerator")
 st.markdown("""
 Product Manager Accelerator (PMA) is a global community and coaching platform founded by Dr. Nancy Li. PMA empowers aspiring and experienced product managers to break into and excel in product management careers.
 """)
+
 
