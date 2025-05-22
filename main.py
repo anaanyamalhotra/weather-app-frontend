@@ -151,7 +151,7 @@ if st.button("Get Weather"):
 if st.session_state.weather_data:
     w1 = st.session_state.weather_data
     w2 = st.session_state.compare_data
-
+metric = st.selectbox("📊 Choose metric to plot", ["Temperature", "Humidity", "Wind"])
     if w2:
         col1, col2 = st.columns(2)
         for col, data, loc in zip([col1, col2], [w1, w2], [loc1, loc2]):
@@ -163,7 +163,7 @@ if st.session_state.weather_data:
                 st.metric("💨 Wind", f"{weather['wind'].get('speed', 'N/A')} m/s")
                 show_aqi_card(aqi)
                 show_alerts(weather)
-                show_hourly_chart(forecast, "Temperature")
+                show_hourly_chart(forecast, metric)
                 show_5day_table(forecast, unit_api)
                 show_map(coords["lat"], coords["lon"])
                 show_youtube(loc)
